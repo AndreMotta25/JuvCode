@@ -1,0 +1,38 @@
+{
+  "name": "dyad-express-app",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/index.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "dev": "ts-node-dev --transpile-only --pretty src/index.ts",
+    "build": "esbuild src/index.ts --bundle --platform=node --target=node18 --outdir=dist --format=cjs --sourcemap --external:express --external:cors --external:helmet --external:morgan --external:express-rate-limit --external:zod --external:dotenv --external:@prisma/client",
+    "prestart": "npm run build",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev --name init"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-rate-limit": "^7.4.0",
+    "helmet": "^7.1.0",
+    "morgan": "^1.10.0",
+    "zod": "^3.23.8",
+    "@prisma/client": "^6.19.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/morgan": "^1.9.6",
+    "@types/node": "^22.8.1",
+    "esbuild": "^0.23.1",
+    "prisma": "^6.19.0",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.6.3"
+  }
+}

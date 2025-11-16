@@ -1,0 +1,1 @@
+{"mcpServers":{"context7":{"command":"npx","args":["-y","@upstash/context7-mcp"],"env":{"DEFAULT_MINIMUM_TOKENS":"","API_KEY":"ctx7sk-c5061698-03b1-45bf-b59b-a60c38d72b5c"},"alwaysAllow":["resolve-library-id","get-library-docs"],"timeout":600}}}
