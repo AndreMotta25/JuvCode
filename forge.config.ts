@@ -54,8 +54,8 @@ const config: ForgeConfig = {
   packagerConfig: {
     protocols: [
       {
-        name: "Dyad",
-        schemes: ["dyad"],
+        name: "juvcode",
+        schemes: ["juvcode"],
       },
     ],
     icon: "./assets/icon/logo",

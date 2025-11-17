@@ -48,12 +48,12 @@ if (started) {
 // https://www.electronjs.org/docs/latest/tutorial/launch-app-from-url-in-another-app#main-process-mainjs
 if (process.defaultApp) {
   if (process.argv.length >= 2) {
-    app.setAsDefaultProtocolClient("dyad", process.execPath, [
+    app.setAsDefaultProtocolClient("juvcode", process.execPath, [
       path.resolve(process.argv[1]),
     ]);
   }
 } else {
-  app.setAsDefaultProtocolClient("dyad");
+  app.setAsDefaultProtocolClient("juvcode");
 }
 
 export async function onReady() {
@@ -72,6 +72,7 @@ export async function onReady() {
   await onFirstRunMaybe(settings);
   createWindow();
 
+  /* Retirando o auto-update
   logger.info("Auto-update enabled=", settings.enableAutoUpdate);
   if (settings.enableAutoUpdate) {
     // Technically we could just pass the releaseChannel directly to the host,
@@ -89,6 +90,7 @@ export async function onReady() {
       },
     }); // additional configuration options available
   }
+  */
 }
 
 export async function onFirstRunMaybe(settings: UserSettings) {
