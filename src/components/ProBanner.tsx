@@ -24,7 +24,7 @@ export function ManageDyadProButton() {
       className="w-full mt-4 bg-(--background-lighter) text-primary"
     >
       <KeyRound aria-hidden="true" />
-      Dyad Pro (Gratuito)
+      JuvCode Pro (Gratuito)
     </Button>
   );
 }
@@ -37,7 +37,7 @@ export function SetupDyadProButton() {
       className="w-full mt-4 bg-(--background-lighter) text-primary"
     >
       <KeyRound aria-hidden="true" />
-      Dyad Pro Ativado
+      JuvCode Pro Ativado
     </Button>
   );
 }
@@ -51,7 +51,7 @@ export function AiAccessBanner() {
       />
       <div className="relative z-10 text-center flex flex-col items-center gap-0.5 sm:gap-1 md:gap-1.5 px-4 md:px-6 pr-6 md:pr-8">
         <div className="text-xl font-semibold tracking-tight text-indigo-900 dark:text-indigo-100">
-          Dyad Pro Gratuito Ativado
+          JuvCode Pro Gratuito Ativado
         </div>
         <div className="text-sm sm:text-base mt-1 text-indigo-700 dark:text-indigo-200/80">
           Acesso completo a todos os recursos Pro
