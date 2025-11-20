@@ -204,6 +204,7 @@ Details: ${details || "n/a"}
     appId,
     isNeon,
     event,
+    preferredProxyPort: getPreferredProxyPortFromApp(appPath),
   });
 }
 
@@ -212,11 +213,13 @@ function listenToProcess({
   appId,
   isNeon,
   event,
+  preferredProxyPort,
 }: {
   process: ChildProcess;
   appId: number;
   isNeon: boolean;
   event: Electron.IpcMainInvokeEvent;
+  preferredProxyPort?: number;
 }) {
   // Log output
   spawnedProcess.stdout?.on("data", async (data) => {
@@ -266,6 +269,7 @@ function listenToProcess({
               appId,
             });
           },
+          preferredPort: preferredProxyPort,
         });
       }
     }
@@ -300,6 +304,19 @@ function listenToProcess({
     // Note: We don't throw here as the error is asynchronous. The caller got a success response already.
     // Consider adding ipcRenderer event emission to notify UI of the error.
   });
+}
+
+function getPreferredProxyPortFromApp(appPath: string): number | undefined {
+  try {
+    const raw = fs.readFileSync(path.join(appPath, "package.json"), "utf-8");
+    const pkg = JSON.parse(raw);
+    const val = pkg?.dyad?.devProxyPort;
+    if (val != null) {
+      const n = Number(val);
+      if (Number.isInteger(n) && n >= 1024 && n <= 65535) return n;
+    }
+  } catch {}
+  return undefined;
 }
 
 async function executeAppInDocker({
