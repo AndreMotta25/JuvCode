@@ -120,15 +120,6 @@ const gitIgnoreCache = new Map<string, boolean>();
 // Map to store .gitignore file paths and their modification times
 const gitIgnoreMtimes = new Map<string, number>();
 
-// Cache for glob pattern results to avoid recalculating
-const globPatternCache = new Map<string, {
-  files: string[];
-  timestamp: number;
-}>();
-
-// Cache TTL in milliseconds (5 minutes)
-const CACHE_TTL = 5 * 60 * 1000;
-
 /**
  * Check if a path should be ignored based on git ignore rules
  */
@@ -320,166 +311,6 @@ async function collectFiles(dir: string, baseDir: string): Promise<string[]> {
   return files;
 }
 
-/**
- * Optimized version of collectFiles that filters during collection based on glob patterns
- * This avoids the need to collect all files first and then filter
- */
-async function collectFilesOptimized(
-  dir: string,
-  baseDir: string,
-  globPatterns?: string[]
-): Promise<string[]> {
-  const files: string[] = [];
-
-  // Check if directory exists
-  try {
-    await fsAsync.access(dir);
-  } catch {
-    // Directory doesn't exist or is not accessible
-    return files;
-  }
-
-  try {
-    // Read directory contents
-    const entries = await fsAsync.readdir(dir, { withFileTypes: true });
-
-    // Process entries concurrently
-    const promises = entries.map(async (entry) => {
-      const fullPath = path.join(dir, entry.name);
-      const relativePath = path.relative(baseDir, fullPath);
-
-      // Skip excluded directories
-      if (entry.isDirectory() && EXCLUDED_DIRS.includes(entry.name)) {
-        return;
-      }
-
-      // Skip if the entry is git ignored
-      if (await isGitIgnored(fullPath, baseDir)) {
-        return;
-      }
-
-      if (entry.isDirectory()) {
-        // Recursively process subdirectories
-        const subDirFiles = await collectFilesOptimized(fullPath, baseDir, globPatterns);
-        files.push(...subDirFiles);
-      } else if (entry.isFile()) {
-        // Skip excluded files
-        if (EXCLUDED_FILES.includes(entry.name)) {
-          return;
-        }
-
-        // Skip files that are too large
-        try {
-          const stats = await fsAsync.stat(fullPath);
-          if (stats.size > MAX_FILE_SIZE) {
-            return;
-          }
-        } catch (error) {
-          logger.error(`Error checking file size: ${fullPath}`, error);
-          return;
-        }
-
-        // Early filtering based on glob patterns if provided
-        if (globPatterns && globPatterns.length > 0) {
-          const matches = globPatterns.some(pattern => {
-            const fullPattern = path.join(baseDir, pattern).replace(/\\/g, "/");
-            const filePath = fullPath.replace(/\\/g, "/");
-            // Simple glob matching - could be enhanced with proper glob library
-            const patternParts = fullPattern.split("*");
-            if (patternParts.length === 1) {
-              // No wildcard, exact match
-              return filePath === fullPattern;
-            }
-            // Check if file matches the glob pattern
-            return patternParts.every(part => filePath.includes(part));
-          });
-          
-          if (!matches) {
-            return;
-          }
-        }
-
-        // Include file if it passes all checks
-        files.push(fullPath);
-      }
-    });
-
-    await Promise.all(promises);
-  } catch (error) {
-    logger.error(`Error reading directory ${dir}:`, error);
-  }
-
-  return files;
-}
-
-/**
- * Selective collection that uses only necessary glob patterns
- * This is much more efficient than collecting all files and then filtering
- */
-export async function collectFilesSelective(
-  appPath: string,
-  globPatterns: string[]
-): Promise<string[]> {
-  // Create cache key based on patterns and app path
-  const cacheKey = `${appPath}:${globPatterns.sort().join(",")}`;
-  const now = Date.now();
-  
-  // Check cache first
-  const cached = globPatternCache.get(cacheKey);
-  if (cached && (now - cached.timestamp) < CACHE_TTL) {
-    logger.log(`Cache hit for glob pattern: ${cacheKey}`);
-    return cached.files;
-  }
-
-  // For selective collection, we directly use glob to find files
-  // This is much more efficient than traversing the entire tree
-  const allFiles = new Set<string>();
-  
-  for (const pattern of globPatterns) {
-    const fullPattern = createFullGlobPath({
-      appPath,
-      globPath: pattern,
-    });
-    
-    try {
-      const matches = await glob(fullPattern, {
-        nodir: true,
-        absolute: true,
-        ignore: "**/node_modules/**",
-      });
-      
-      matches.forEach((file) => {
-        const normalizedFile = path.normalize(file);
-        // Filter out excluded files and check file size
-        if (!EXCLUDED_FILES.includes(path.basename(normalizedFile))) {
-          allFiles.add(normalizedFile);
-        }
-      });
-    } catch (error) {
-      logger.warn(`Error matching pattern ${pattern}:`, error);
-    }
-  }
-
-  const files = Array.from(allFiles);
-  
-  // Cache the result
-  globPatternCache.set(cacheKey, {
-    files,
-    timestamp: now,
-  });
-
-  // Clean old cache entries periodically
-  if (globPatternCache.size > 100) {
-    const entriesToDelete = Math.ceil(globPatternCache.size * 0.2);
-    const keys = Array.from(globPatternCache.keys());
-    for (let i = 0; i < entriesToDelete; i++) {
-      globPatternCache.delete(keys[i]);
-    }
-  }
-
-  return files;
-}
-
 const OMITTED_FILE_CONTENT = "// File contents excluded from context";
 
 /**
@@ -540,23 +371,14 @@ async function formatFile({
   filePath,
   normalizedRelativePath,
   virtualFileSystem,
-  isAdaptiveContextEnabled,
 }: {
   filePath: string;
   normalizedRelativePath: string;
   virtualFileSystem?: AsyncVirtualFileSystem;
-  isAdaptiveContextEnabled: boolean;
 }): Promise<string> {
   try {
     // Check if we should read file contents
-    const shouldRead = isAdaptiveContextEnabled
-      ? shouldReadFileContents({ filePath, normalizedRelativePath })
-      : shouldReadFileContentsForSmartContext({
-          filePath,
-          normalizedRelativePath,
-        });
-
-    if (!shouldRead) {
+    if (!shouldReadFileContents({ filePath, normalizedRelativePath })) {
       return `<dyad-file path="${normalizedRelativePath}">
 ${OMITTED_FILE_CONTENT}
 </dyad-file>
@@ -622,7 +444,8 @@ export async function extractCodebase({
   files: CodebaseFile[];
 }> {
   const settings = readSettings();
-  const isAdaptiveContextEnabled = settings?.adaptiveContextEnabled === true;
+  const isSmartContextEnabled =
+    settings?.enableDyadPro && settings?.enableProSmartFilesContextMode;
 
   try {
     await fsAsync.access(appPath);
@@ -634,23 +457,8 @@ export async function extractCodebase({
   }
   const startTime = Date.now();
 
-  // Collect files from contextPaths and smartContextAutoIncludes
-  const { contextPaths, smartContextAutoIncludes, excludePaths } = chatContext;
-  
-  // Optimize: Only collect files when we have specific patterns
-  let files: string[] = [];
-  
-  if (!isAdaptiveContextEnabled) {
-    files = await collectFiles(appPath, appPath);
-  } else if (contextPaths && contextPaths.length > 0) {
-    const globPatterns = contextPaths.map(p => p.globPath);
-    files = await collectFilesSelective(appPath, globPatterns);
-  } else if (smartContextAutoIncludes && smartContextAutoIncludes.length > 0) {
-    const globPatterns = smartContextAutoIncludes.map(p => p.globPath);
-    files = await collectFilesSelective(appPath, globPatterns);
-  } else {
-    files = await collectFiles(appPath, appPath);
-  }
+  // Collect all relevant files
+  let files = await collectFiles(appPath, appPath);
 
   // Apply virtual filesystem modifications if provided
   if (virtualFileSystem) {
@@ -672,8 +480,56 @@ export async function extractCodebase({
     }
   }
 
-  // Handle exclude paths (this still needs to be done after collection)
+  // Collect files from contextPaths and smartContextAutoIncludes
+  const { contextPaths, smartContextAutoIncludes, excludePaths } = chatContext;
+  const includedFiles = new Set<string>();
+  const autoIncludedFiles = new Set<string>();
   const excludedFiles = new Set<string>();
+
+  // Add files from contextPaths
+  if (contextPaths && contextPaths.length > 0) {
+    for (const p of contextPaths) {
+      const pattern = createFullGlobPath({
+        appPath,
+        globPath: p.globPath,
+      });
+      const matches = await glob(pattern, {
+        nodir: true,
+        absolute: true,
+        ignore: "**/node_modules/**",
+      });
+      matches.forEach((file) => {
+        const normalizedFile = path.normalize(file);
+        includedFiles.add(normalizedFile);
+      });
+    }
+  }
+
+  // Add files from smartContextAutoIncludes
+  if (
+    isSmartContextEnabled &&
+    smartContextAutoIncludes &&
+    smartContextAutoIncludes.length > 0
+  ) {
+    for (const p of smartContextAutoIncludes) {
+      const pattern = createFullGlobPath({
+        appPath,
+        globPath: p.globPath,
+      });
+      const matches = await glob(pattern, {
+        nodir: true,
+        absolute: true,
+        ignore: "**/node_modules/**",
+      });
+      matches.forEach((file) => {
+        const normalizedFile = path.normalize(file);
+        autoIncludedFiles.add(normalizedFile);
+        includedFiles.add(normalizedFile); // Also add to included files
+      });
+    }
+  }
+
+  // Add files from excludePaths
   if (excludePaths && excludePaths.length > 0) {
     for (const p of excludePaths) {
       const pattern = createFullGlobPath({
@@ -690,27 +546,17 @@ export async function extractCodebase({
         excludedFiles.add(normalizedFile);
       });
     }
-    
-    // Filter out excluded files (this takes precedence over include paths)
-    if (excludedFiles.size > 0) {
-      files = files.filter((file) => !excludedFiles.has(path.normalize(file)));
-    }
   }
 
-  // Handle auto-include paths (only when using smart context)
-  const autoIncludedFiles = new Set<string>();
-  if (
-    isAdaptiveContextEnabled &&
-    smartContextAutoIncludes &&
-    smartContextAutoIncludes.length > 0 &&
-    (!contextPaths || contextPaths.length === 0)
-  ) {
-    // If no context paths but we have auto-includes, we need to collect those files
-    const autoIncludePatterns = smartContextAutoIncludes.map(p => p.globPath);
-    const autoFiles = await collectFilesSelective(appPath, autoIncludePatterns);
-    autoFiles.forEach(file => {
-      autoIncludedFiles.add(path.normalize(file));
-    });
+  // Only filter files if contextPaths are provided
+  // If only smartContextAutoIncludes are provided, keep all files and just mark auto-includes as forced
+  if (contextPaths && contextPaths.length > 0) {
+    files = files.filter((file) => includedFiles.has(path.normalize(file)));
+  }
+
+  // Filter out excluded files (this takes precedence over include paths)
+  if (excludedFiles.size > 0) {
+    files = files.filter((file) => !excludedFiles.has(path.normalize(file)));
   }
 
   // Sort files by modification time (oldest first)
@@ -730,23 +576,20 @@ export async function extractCodebase({
       filePath: file,
       normalizedRelativePath,
       virtualFileSystem,
-      isAdaptiveContextEnabled,
     });
 
-    const isForced = autoIncludedFiles.has(path.normalize(file));
+    const isForced =
+      autoIncludedFiles.has(path.normalize(file)) &&
+      !excludedFiles.has(path.normalize(file));
 
     // Determine file content based on whether we should read it
     let fileContent: string;
-    const shouldRead = isAdaptiveContextEnabled
-      ? shouldReadFileContents({
-          filePath: file,
-          normalizedRelativePath,
-        })
-      : shouldReadFileContentsForSmartContext({
-          filePath: file,
-          normalizedRelativePath,
-        });
-    if (!shouldRead) {
+    if (
+      !shouldReadFileContentsForSmartContext({
+        filePath: file,
+        normalizedRelativePath,
+      })
+    ) {
       fileContent = OMITTED_FILE_CONTENT;
     } else {
       const readContent = await readFileWithCache(file, virtualFileSystem);
@@ -812,7 +655,7 @@ async function sortFilesByModificationTime(files: string[]): Promise<string[]> {
   return fileStats.sort((a, b) => a.mtime - b.mtime).map((item) => item.file);
 }
 
-export function createFullGlobPath({
+function createFullGlobPath({
   appPath,
   globPath,
 }: {

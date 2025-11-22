@@ -238,6 +238,7 @@ export const UserSettingsSchema = z.object({
   proLazyEditsMode: z.enum(["off", "v1", "v2"]).optional(),
   enableProSmartFilesContextMode: z.boolean().optional(),
   enableProWebSearch: z.boolean().optional(),
+  adaptiveContextEnabled: z.boolean().optional(),
   proSmartContextOption: z
     .enum(["balanced", "conservative", "deep"])
     .optional(),
@@ -273,13 +274,11 @@ export const UserSettingsSchema = z.object({
 export type UserSettings = z.infer<typeof UserSettingsSchema>;
 
 export function isDyadProEnabled(settings: UserSettings): boolean {
-  // Always return true - Dyad Pro is now free
-  return true;
+  return Boolean(settings.enableDyadPro);
 }
 
 export function hasDyadProKey(settings: UserSettings): boolean {
-  // Always return true - Dyad Pro is now free
-  return true;
+  return false;
 }
 
 export function isTurboEditsV2Enabled(settings: UserSettings): boolean {

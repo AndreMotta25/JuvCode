@@ -1277,6 +1277,12 @@ export class IpcClient {
     return this.ipcRenderer.invoke("get-context-paths", params);
   }
 
+  public async getChatContextFiles(params: {
+    appId: number;
+  }): Promise<{ files: string[] }> {
+    return this.ipcRenderer.invoke("get-context-files", params);
+  }
+
   public async setChatContext(params: {
     appId: number;
     chatContext: AppChatContext;

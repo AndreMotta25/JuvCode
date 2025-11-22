@@ -48,12 +48,12 @@ if (started) {
 // https://www.electronjs.org/docs/latest/tutorial/launch-app-from-url-in-another-app#main-process-mainjs
 if (process.defaultApp) {
   if (process.argv.length >= 2) {
-    app.setAsDefaultProtocolClient("juvcode", process.execPath, [
+    app.setAsDefaultProtocolClient("dyad", process.execPath, [
       path.resolve(process.argv[1]),
     ]);
   }
 } else {
-  app.setAsDefaultProtocolClient("juvcode");
+  app.setAsDefaultProtocolClient("dyad");
 }
 
 export async function onReady() {

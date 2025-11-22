@@ -7,7 +7,7 @@ import {
 } from "@/components/ui/popover";
 
 import { InfoIcon, Settings2, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Tooltip,
   TooltipContent,
@@ -17,6 +17,8 @@ import {
 import { useSettings } from "@/hooks/useSettings";
 import { useContextPaths } from "@/hooks/useContextPaths";
 import type { ContextPathResult } from "@/lib/schemas";
+import { useContextFiles } from "@/hooks/useContextFiles";
+import { IpcClient } from "@/ipc/ipc_client";
 
 export function ContextFilesPicker() {
   const { settings } = useSettings();
@@ -32,6 +34,9 @@ export function ContextFilesPicker() {
   const [newPath, setNewPath] = useState("");
   const [newAutoIncludePath, setNewAutoIncludePath] = useState("");
   const [newExcludePath, setNewExcludePath] = useState("");
+  const { files: contextFiles, isLoading: filesLoading, error: filesError, refetch } = useContextFiles();
+  const [visibleCount, setVisibleCount] = useState(50);
+  const fileItems = useMemo(() => contextFiles.map((p) => p.trim()).filter(Boolean), [contextFiles]);
 
   const addPath = () => {
     if (
@@ -405,6 +410,58 @@ export function ContextFilesPicker() {
               </TooltipProvider>
             </div>
           )}
+
+          <div className="pt-2">
+            <div className="flex items-center justify-between">
+              <h3 className="font-medium">Included Files</h3>
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="sm" onClick={() => refetch()}>Refresh</Button>
+                {fileItems.length > 0 && (
+                  <span className="text-xs text-muted-foreground">{fileItems.length} files</span>
+                )}
+              </div>
+            </div>
+            {filesLoading && (
+              <p className="text-sm text-muted-foreground">Loading files…</p>
+            )}
+            {filesError && (
+              <p className="text-sm text-red-600">Failed to load files</p>
+            )}
+            {!filesLoading && fileItems.length === 0 && (
+              <div className="rounded-md border border-dashed p-4 text-center">
+                <p className="text-sm text-muted-foreground">No files resolved for the current context selection.</p>
+              </div>
+            )}
+            {fileItems.length > 0 && (
+              <div className="space-y-2 mt-2">
+                {fileItems.slice(0, visibleCount).map((file, idx) => {
+                  const fileName = file.replace(/\\/g, "/").split("/").pop() || file;
+                  return (
+                    <div key={`${file}-${idx}`} className="flex items-center justify-between gap-2 rounded-md border p-2">
+                      <div className="flex flex-col overflow-hidden">
+                        <span className="truncate text-sm font-medium">{fileName}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button variant="ghost" size="icon" onClick={() => navigator.clipboard.writeText(file)}>
+                          <span className="sr-only">Copy</span>
+                          📋
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => IpcClient.getInstance().showItemInFolder(file)}>
+                          <span className="sr-only">Open</span>
+                          📂
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+                {fileItems.length > visibleCount && (
+                  <div className="w-full mt-2">
+                    <Button variant="outline" size="sm" onClick={() => setVisibleCount((c) => c + 50)}>Show more</Button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </PopoverContent>
     </Popover>
