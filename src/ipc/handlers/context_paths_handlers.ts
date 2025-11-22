@@ -13,6 +13,7 @@ import log from "electron-log";
 import { getDyadAppPath } from "@/paths/paths";
 import { extractCodebase } from "@/utils/codebase";
 import { validateChatContext } from "../utils/context_paths_utils";
+import path from "node:path";
 
 const logger = log.scope("context_paths_handlers");
 const handle = createLoggedHandler(logger);
@@ -111,6 +112,39 @@ export function registerContextPathsHandlers() {
       schema.parse({ appId, chatContext });
 
       await db.update(apps).set({ chatContext }).where(eq(apps.id, appId));
+    },
+  );
+
+  handle(
+    "get-context-files",
+    async (
+      _,
+      { appId }: { appId: number },
+    ): Promise<{ files: string[] }> => {
+      z.object({ appId: z.number() }).parse({ appId });
+
+      const app = await db.query.apps.findFirst({
+        where: eq(apps.id, appId),
+      });
+
+      if (!app) {
+        throw new Error("App not found");
+      }
+      if (!app.path) {
+        throw new Error("App path not set");
+      }
+
+      const appPath = getDyadAppPath(app.path);
+      const chatContext = validateChatContext(app.chatContext);
+
+      const { files } = await extractCodebase({
+        appPath,
+        chatContext,
+      });
+
+      return {
+        files: files.map((f) => path.resolve(appPath, f.path)),
+      };
     },
   );
 }

@@ -101,6 +101,7 @@ const validInvokeChannels = [
   "get-user-budget",
   "get-context-paths",
   "set-context-paths",
+  "get-context-files",
   "get-app-upgrades",
   "execute-app-upgrade",
   "is-capacitor",
