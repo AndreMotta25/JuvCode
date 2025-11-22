@@ -142,8 +142,12 @@ export function registerContextPathsHandlers() {
         chatContext,
       });
 
+      const includedFiles = files
+        .filter((f) => f.content !== "// File contents excluded from context")
+        .map((f) => path.resolve(appPath, f.path));
+
       return {
-        files: files.map((f) => path.resolve(appPath, f.path)),
+        files: includedFiles,
       };
     },
   );
