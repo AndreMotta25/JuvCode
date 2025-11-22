@@ -98,8 +98,8 @@ export function registerTokenCountHandlers() {
         
         codebaseTokens = estimateTokens(formattedOutput);
         
-        // Se tokens muito altos, usa contexto mínimo
-        if (codebaseTokens > 8000) {
+        // Se tokens muito altos, usa contexto mínimo (apenas quando Adaptive Context está habilitado)
+        if (settings.adaptiveContextEnabled && codebaseTokens > 8000) {
           logger.log(`⚠️ Contexto muito grande (${codebaseTokens} tokens), usando modo mínimo...`);
           
           const minimalContext = await buildMinimalContext(appPath, req.input || "context analysis");
@@ -115,7 +115,16 @@ export function registerTokenCountHandlers() {
         } else {
           codebaseInfo = formattedOutput;
           
-          if (settings.enableDyadPro && settings.enableProSmartFilesContextMode) {
+          // Quando Adaptive Context está desabilitado, calcular tokens com base nos arquivos para refletir base completa
+          if (!settings.adaptiveContextEnabled) {
+            codebaseTokens = estimateTokens(
+              files
+                .map(
+                  (file) => `<dyad-file=${file.path}>${file.content}</dyad-file>`,
+                )
+                .join("\n\n"),
+            );
+          } else if (settings.enableDyadPro && settings.enableProSmartFilesContextMode) {
             codebaseTokens = estimateTokens(
               files
                 // It doesn't need to be the exact format but it's just to get a token estimate

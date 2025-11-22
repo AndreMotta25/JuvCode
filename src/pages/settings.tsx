@@ -81,6 +81,7 @@ export default function SettingsPage() {
           <GeneralSettings appVersion={appVersion} />
           <WorkflowSettings />
           <AISettings />
+          <FeaturesSettings />
 
           <div
             id="provider-settings"
@@ -341,6 +342,35 @@ export function AISettings() {
 
       <div className="mt-4">
         <MaxChatTurnsSelector />
+      </div>
+    </div>
+  );
+}
+
+export function FeaturesSettings() {
+  const { settings, updateSettings } = useSettings();
+  return (
+    <div
+      id="features"
+      className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6"
+    >
+      <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+        Features
+      </h2>
+      <div className="space-y-1 mt-2">
+        <div className="flex items-center space-x-2">
+          <Switch
+            id="adaptive-context"
+            checked={!!settings?.adaptiveContextEnabled}
+            onCheckedChange={(checked) => {
+              updateSettings({ adaptiveContextEnabled: checked });
+            }}
+          />
+          <Label htmlFor="adaptive-context">Adaptive Context</Label>
+        </div>
+        <div className="text-sm text-gray-500 dark:text-gray-400">
+          Quando habilitado, usa contexto mínimo para reduzir tokens. Desabilitado, inclui toda a base.
+        </div>
       </div>
     </div>
   );
