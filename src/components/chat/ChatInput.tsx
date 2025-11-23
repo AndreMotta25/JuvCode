@@ -67,6 +67,7 @@ import { useCheckProblems } from "@/hooks/useCheckProblems";
 import { LexicalChatInput } from "./LexicalChatInput";
 import { useChatModeToggle } from "@/hooks/useChatModeToggle";
 import { isTerminalVisibleAtom, terminalHeightAtom } from "@/atoms/terminalAtoms";
+import { referenceStylesAttachmentsAtom } from "@/atoms/referenceAtoms";
 
 const showTokenBarAtom = atom(false);
 
@@ -89,6 +90,7 @@ export function ChatInput({ chatId }: { chatId?: number }) {
     selectedComponentPreviewAtom,
   );
   const { checkProblems } = useCheckProblems(appId);
+  const referenceAttachments = useAtomValue(referenceStylesAttachmentsAtom);
   // Use the attachments hook
   const {
     attachments,
@@ -140,7 +142,7 @@ export function ChatInput({ chatId }: { chatId?: number }) {
 
   const handleSubmit = async () => {
     if (
-      (!inputValue.trim() && attachments.length === 0) ||
+      (!inputValue.trim() && attachments.length === 0 && referenceAttachments.length === 0) ||
       isStreaming ||
       !chatId
     ) {
@@ -155,7 +157,7 @@ export function ChatInput({ chatId }: { chatId?: number }) {
     await streamMessage({
       prompt: currentInput,
       chatId,
-      attachments,
+      attachments: [...referenceAttachments, ...attachments],
       redo: false,
       selectedComponent,
     });
@@ -322,7 +324,7 @@ export function ChatInput({ chatId }: { chatId?: number }) {
               <button
                 onClick={handleSubmit}
                 disabled={
-                  (!inputValue.trim() && attachments.length === 0) ||
+                  (!inputValue.trim() && attachments.length === 0 && referenceAttachments.length === 0) ||
                   disableSendButton
                 }
                 className="px-2 py-2 mt-1 mr-1 hover:bg-(--background-darkest) text-(--sidebar-accent-fg) rounded-lg disabled:opacity-50"

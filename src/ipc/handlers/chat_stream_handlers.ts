@@ -681,13 +681,14 @@ DYAD_ATTACHMENT_0
         } else if (hasImageAttachments) {
           systemPrompt += `
 
-# Image Analysis Instructions
-This conversation includes one or more image attachments. When the user uploads images:
-1. If the user explicitly asks for analysis, description, or information about the image, please analyze the image content.
-2. Describe what you see in the image if asked.
-3. You can use images as references when the user has coding or design-related questions.
-4. For diagrams or wireframes, try to understand the content and structure shown.
-5. For screenshots of code or errors, try to identify the issue or explain the code.
+# Image Reference Guidelines
+When image attachments are present, treat them as design references and extract actionable UI guidance:
+1. Derive a color palette with HEX codes (primary, secondary, neutrals, accent). Preserve contrast and usage (background, surface, text, borders).
+2. Identify visible components and states (buttons, inputs, cards, navbars, modals, tabs, tables, lists, hover/active/focus).
+3. Infer layout grid, spacing scale, and border radii from the image composition.
+4. Derive typography cues (sizes, weights); if font family is unknown, approximate the style.
+5. Produce a short design tokens block (colors, spacing, radius, shadows, typography) and use it consistently across generated UI.
+6. When the user asks to build screens or components, match structure and styling to the reference using the extracted tokens.
 `;
         }
 

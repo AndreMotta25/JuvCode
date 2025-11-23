@@ -69,14 +69,26 @@ export function registerTokenCountHandlers() {
       let supabaseContext = "";
 
       if (chat.app?.supabaseProjectId) {
-        systemPrompt += "\n\n" + SUPABASE_AVAILABLE_SYSTEM_PROMPT;
-        supabaseContext = await getSupabaseContext({
-          supabaseProjectId: chat.app.supabaseProjectId,
-        });
-      } else if (
-        // Neon projects don't need Supabase.
-        !chat.app?.neonProjectId
-      ) {
+        const hasToken = Boolean(settings.supabase?.accessToken?.value);
+        if (hasToken) {
+          systemPrompt += "\n\n" + SUPABASE_AVAILABLE_SYSTEM_PROMPT;
+          try {
+            supabaseContext = await getSupabaseContext({
+              supabaseProjectId: chat.app.supabaseProjectId,
+            });
+          } catch (error) {
+            logger.warn(
+              `Failed to fetch Supabase context for project ${chat.app.supabaseProjectId}: ${error instanceof Error ? error.message : String(error)}`,
+            );
+            // Fallback: treat as not available to avoid breaking token count
+            systemPrompt += "\n\n" + SUPABASE_NOT_AVAILABLE_SYSTEM_PROMPT;
+          }
+        } else if (!chat.app?.neonProjectId) {
+          // Project linked but user not authenticated → graceful fallback
+          systemPrompt += "\n\n" + SUPABASE_NOT_AVAILABLE_SYSTEM_PROMPT;
+        }
+      } else if (!chat.app?.neonProjectId) {
+        // No Supabase project linked
         systemPrompt += "\n\n" + SUPABASE_NOT_AVAILABLE_SYSTEM_PROMPT;
       }
 
